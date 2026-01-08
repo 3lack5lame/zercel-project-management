@@ -1,39 +1,92 @@
 import React, { createContext, useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
+import { supabase } from '../config/supabase';
 
 const AuthContext = createContext();
+
+// Check if Supabase is configured
+const isSupabaseConfigured = 
+    import.meta.env.VITE_SUPABASE_URL && 
+    import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
     const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-    // Initialize auth from localStorage
+    // Initialize auth from localStorage or Supabase
     useEffect(() => {
-        const savedUser = localStorage.getItem('user');
-        const savedToken = localStorage.getItem('authToken');
-        
-        if (savedUser && savedToken) {
+        const initAuth = async () => {
             try {
-                const parsedUser = JSON.parse(savedUser);
-                setUser(parsedUser);
-                setIsAuthenticated(true);
-            } catch {
-                localStorage.removeItem('user');
-                localStorage.removeItem('authToken');
+                if (isSupabaseConfigured) {
+                    // Check Supabase session
+                    const { data, error } = await supabase.auth.getSession();
+                    
+                    if (data?.session?.user) {
+                        const user = {
+                            id: data.session.user.id,
+                            email: data.session.user.email,
+                            name: data.session.user.user_metadata?.name || data.session.user.email.split('@')[0],
+                            avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${data.session.user.email}`,
+                            createdAt: data.session.user.created_at,
+                        };
+                        setUser(user);
+                        setIsAuthenticated(true);
+                    }
+                } else {
+                    // Check localStorage for mock auth
+                    const savedUser = localStorage.getItem('user');
+                    const savedToken = localStorage.getItem('authToken');
+                    
+                    if (savedUser && savedToken) {
+                        try {
+                            const parsedUser = JSON.parse(savedUser);
+                            setUser(parsedUser);
+                            setIsAuthenticated(true);
+                        } catch {
+                            localStorage.removeItem('user');
+                            localStorage.removeItem('authToken');
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Auth initialization error:', error);
+            } finally {
+                setLoading(false);
             }
+        };
+
+        initAuth();
+
+        // Listen for auth changes if Supabase is configured
+        if (isSupabaseConfigured) {
+            const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+                if (session?.user) {
+                    const user = {
+                        id: session.user.id,
+                        email: session.user.email,
+                        name: session.user.user_metadata?.name || session.user.email.split('@')[0],
+                        avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${session.user.email}`,
+                        createdAt: session.user.created_at,
+                    };
+                    setUser(user);
+                    setIsAuthenticated(true);
+                } else {
+                    setUser(null);
+                    setIsAuthenticated(false);
+                }
+            });
+
+            return () => {
+                subscription?.unsubscribe();
+            };
         }
-        setLoading(false);
     }, []);
 
     const login = async (email, password) => {
         try {
             setLoading(true);
-            
-            // Mock API call - Replace with real API
-            await new Promise((resolve) => setTimeout(resolve, 1000));
 
-            // Mock validation
             if (!email || !password) {
                 throw new Error('Email and password are required');
             }
@@ -42,27 +95,54 @@ export const AuthProvider = ({ children }) => {
                 throw new Error('Invalid email format');
             }
 
-            // Create mock user object
-            const mockUser = {
-                id: Date.now().toString(),
-                email: email,
-                name: email.split('@')[0],
-                avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${email}`,
-                createdAt: new Date().toISOString(),
-            };
+            // Use Supabase if configured
+            if (isSupabaseConfigured) {
+                const { data, error } = await supabase.auth.signInWithPassword({
+                    email,
+                    password,
+                });
 
-            // Mock token
-            const mockToken = btoa(JSON.stringify(mockUser)) + '_' + Date.now();
+                if (error) {
+                    throw new Error(error.message || 'Login failed');
+                }
 
-            // Save to localStorage
-            localStorage.setItem('user', JSON.stringify(mockUser));
-            localStorage.setItem('authToken', mockToken);
+                const mockUser = {
+                    id: data.user.id,
+                    email: data.user.email,
+                    name: data.user.email.split('@')[0],
+                    avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${data.user.email}`,
+                    createdAt: data.user.created_at,
+                };
 
-            setUser(mockUser);
-            setIsAuthenticated(true);
-            toast.success('Logged in successfully');
-            
-            return { success: true, user: mockUser };
+                localStorage.setItem('user', JSON.stringify(mockUser));
+                setUser(mockUser);
+                setIsAuthenticated(true);
+                toast.success('Logged in successfully');
+
+                return { success: true, user: mockUser };
+            } else {
+                // Fall back to mock authentication
+                await new Promise((resolve) => setTimeout(resolve, 1000));
+
+                const mockUser = {
+                    id: Date.now().toString(),
+                    email: email,
+                    name: email.split('@')[0],
+                    avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${email}`,
+                    createdAt: new Date().toISOString(),
+                };
+
+                const mockToken = btoa(JSON.stringify(mockUser)) + '_' + Date.now();
+
+                localStorage.setItem('user', JSON.stringify(mockUser));
+                localStorage.setItem('authToken', mockToken);
+
+                setUser(mockUser);
+                setIsAuthenticated(true);
+                toast.success('Logged in successfully (Mock)');
+
+                return { success: true, user: mockUser };
+            }
         } catch (error) {
             toast.error(error.message || 'Login failed');
             return { success: false, error: error.message };
@@ -74,9 +154,6 @@ export const AuthProvider = ({ children }) => {
     const signup = async (name, email, password, confirmPassword) => {
         try {
             setLoading(true);
-
-            // Mock API call
-            await new Promise((resolve) => setTimeout(resolve, 1000));
 
             // Validation
             if (!name || !email || !password || !confirmPassword) {
@@ -95,27 +172,59 @@ export const AuthProvider = ({ children }) => {
                 throw new Error('Passwords do not match');
             }
 
-            // Create mock user
-            const mockUser = {
-                id: Date.now().toString(),
-                name: name,
-                email: email,
-                avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${email}`,
-                createdAt: new Date().toISOString(),
-            };
+            // Use Supabase if configured
+            if (isSupabaseConfigured) {
+                const { data, error } = await supabase.auth.signUp({
+                    email,
+                    password,
+                    options: {
+                        data: {
+                            name: name,
+                        },
+                    },
+                });
 
-            // Mock token
-            const mockToken = btoa(JSON.stringify(mockUser)) + '_' + Date.now();
+                if (error) {
+                    throw new Error(error.message || 'Sign up failed');
+                }
 
-            // Save to localStorage
-            localStorage.setItem('user', JSON.stringify(mockUser));
-            localStorage.setItem('authToken', mockToken);
+                const mockUser = {
+                    id: data.user.id,
+                    email: data.user.email,
+                    name: name,
+                    avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${email}`,
+                    createdAt: data.user.created_at,
+                };
 
-            setUser(mockUser);
-            setIsAuthenticated(true);
-            toast.success('Account created successfully');
-            
-            return { success: true, user: mockUser };
+                localStorage.setItem('user', JSON.stringify(mockUser));
+                setUser(mockUser);
+                setIsAuthenticated(true);
+                toast.success('Account created successfully. Please check your email to verify your account.');
+
+                return { success: true, user: mockUser };
+            } else {
+                // Fall back to mock authentication
+                await new Promise((resolve) => setTimeout(resolve, 1000));
+
+                const mockUser = {
+                    id: Date.now().toString(),
+                    name: name,
+                    email: email,
+                    avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${email}`,
+                    createdAt: new Date().toISOString(),
+                };
+
+                const mockToken = btoa(JSON.stringify(mockUser)) + '_' + Date.now();
+
+                localStorage.setItem('user', JSON.stringify(mockUser));
+                localStorage.setItem('authToken', mockToken);
+
+                setUser(mockUser);
+                setIsAuthenticated(true);
+                toast.success('Account created successfully (Mock)');
+
+                return { success: true, user: mockUser };
+            }
         } catch (error) {
             toast.error(error.message || 'Sign up failed');
             return { success: false, error: error.message };
@@ -124,8 +233,13 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
-    const logout = () => {
+    const logout = async () => {
         try {
+            // Use Supabase if configured
+            if (isSupabaseConfigured) {
+                await supabase.auth.signOut();
+            }
+
             localStorage.removeItem('user');
             localStorage.removeItem('authToken');
             setUser(null);
@@ -142,15 +256,28 @@ export const AuthProvider = ({ children }) => {
         try {
             setLoading(true);
 
-            // Mock API call
-            await new Promise((resolve) => setTimeout(resolve, 1000));
-
             if (!email || !email.includes('@')) {
                 throw new Error('Please enter a valid email address');
             }
 
-            toast.success('Password reset link sent to your email');
-            return { success: true };
+            // Use Supabase if configured
+            if (isSupabaseConfigured) {
+                const { error } = await supabase.auth.resetPasswordForEmail(email, {
+                    redirectTo: `${window.location.origin}/reset-password`,
+                });
+
+                if (error) {
+                    throw new Error(error.message || 'Failed to send reset link');
+                }
+
+                toast.success('Password reset link sent to your email');
+                return { success: true };
+            } else {
+                // Fall back to mock
+                await new Promise((resolve) => setTimeout(resolve, 1000));
+                toast.success('Password reset link sent to your email (Mock)');
+                return { success: true };
+            }
         } catch (error) {
             toast.error(error.message || 'Failed to send reset link');
             return { success: false, error: error.message };
