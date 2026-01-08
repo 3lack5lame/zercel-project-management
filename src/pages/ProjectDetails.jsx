@@ -103,7 +103,15 @@ export default function ProjectDetail() {
                         { key: "analytics", label: "Analytics", icon: BarChart3Icon },
                         { key: "settings", label: "Settings", icon: SettingsIcon },
                     ].map((tabItem) => (
-                        <button key={tabItem.key} onClick={() => { setActiveTab(tabItem.key); setSearchParams({ id: id, tab: tabItem.key }) }} className={`flex items-center gap-2 px-4 py-2 text-sm transition-all ${activeTab === tabItem.key ? "bg-zinc-100 dark:bg-zinc-800/80" : "hover:bg-zinc-50 dark:hover:bg-zinc-700"}`} >
+                        <button 
+                            key={tabItem.key} 
+                            type="button"
+                            onClick={() => { 
+                                setActiveTab(tabItem.key); 
+                                setSearchParams({ id: id, tab: tabItem.key }) 
+                            }} 
+                            className={`flex items-center gap-2 px-4 py-2 text-sm transition-all cursor-pointer ${activeTab === tabItem.key ? "bg-zinc-100 dark:bg-zinc-800/80" : "hover:bg-zinc-50 dark:hover:bg-zinc-700"}`} 
+                        >
                             <tabItem.icon className="size-3.5" />
                             {tabItem.label}
                         </button>
