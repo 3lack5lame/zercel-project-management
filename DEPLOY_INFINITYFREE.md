@@ -60,6 +60,25 @@ This creates a `dist` folder with all files ready to deploy.
 5. Delete existing files
 6. Upload all files from `dist` folder
 
+## Automatic deploy from GitHub
+
+You can automatically build and sync your site to InfinityFree whenever you push to the `main` branch using GitHub Actions. A workflow file has been added at `.github/workflows/deploy-infinityfree.yml` which:
+
+- Installs dependencies (`npm ci`)
+- Runs `npm run build`
+- Uploads the `dist` folder to your InfinityFree hosting via FTP/FTPS
+
+Required GitHub Secrets (Repository → Settings → Secrets → Actions):
+
+- `INF_HOST` — your InfinityFree FTP hostname (for many accounts this is `ftpupload.net`)
+- `INF_USERNAME` — your FTP username
+- `INF_PASSWORD` — your FTP password
+- `INF_SERVER_DIR` — remote directory to upload to (common value: `/htdocs` or `/public_html`)
+
+After adding the secrets, any push to `main` will trigger the workflow and sync the `dist` folder to InfinityFree.
+
+Note: If the site does not update, check the workflow run logs in the GitHub Actions tab and verify FTP credentials and `INF_SERVER_DIR` are correct.
+
 ### Step 6: Configure InfinityFree
 
 1. Go to InfinityFree control panel
