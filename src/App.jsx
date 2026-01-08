@@ -8,13 +8,31 @@ import ProjectDetails from "./pages/ProjectDetails";
 import TaskDetails from "./pages/TaskDetails";
 import Settings from "./pages/Settings";
 import Integrations from "./pages/Integrations";
+import Login from "./pages/Login";
+import Signup from "./pages/Signup";
+import ForgotPassword from "./pages/ForgotPassword";
+import ProtectedRoute from "./components/ProtectedRoute";
+import { AuthProvider } from "./context/AuthContext";
 
 const App = () => {
     return (
-        <>
+        <AuthProvider>
             <Toaster />
             <Routes>
-                <Route path="/" element={<Layout />}>
+                {/* Auth Routes - No Layout */}
+                <Route path="/login" element={<Login />} />
+                <Route path="/signup" element={<Signup />} />
+                <Route path="/forgot-password" element={<ForgotPassword />} />
+
+                {/* Protected Routes - With Layout */}
+                <Route
+                    path="/"
+                    element={
+                        <ProtectedRoute>
+                            <Layout />
+                        </ProtectedRoute>
+                    }
+                >
                     <Route index element={<Dashboard />} />
                     <Route path="team" element={<Team />} />
                     <Route path="projects" element={<Projects />} />
@@ -24,7 +42,7 @@ const App = () => {
                     <Route path="integrations" element={<Integrations />} />
                 </Route>
             </Routes>
-        </>
+        </AuthProvider>
     );
 };
 

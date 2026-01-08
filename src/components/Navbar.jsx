@@ -5,12 +5,14 @@ import { MoonIcon, SunIcon } from 'lucide-react'
 import { assets } from '../assets/assets'
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../context/useAuth'
 
 const Navbar = ({ setIsSidebarOpen }) => {
 
     const dispatch = useDispatch();
     const navigate = useNavigate();
     const { theme } = useSelector(state => state.theme);
+    const { user, logout } = useAuth();
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const dropdownRef = useRef(null);
 
@@ -29,7 +31,15 @@ const Navbar = ({ setIsSidebarOpen }) => {
         { icon: Settings, label: 'Settings', action: () => navigate('/settings') },
         { icon: HelpCircle, label: 'Help & Support', action: () => navigate('/help') },
         { divider: true },
-        { icon: LogOut, label: 'Logout', action: () => console.log('Logout'), className: 'text-red-600 dark:text-red-400' },
+        {
+            icon: LogOut,
+            label: 'Logout',
+            action: () => {
+                logout();
+                navigate('/login');
+            },
+            className: 'text-red-600 dark:text-red-400'
+        },
     ];
 
     return (
@@ -71,7 +81,11 @@ const Navbar = ({ setIsSidebarOpen }) => {
                             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                             className="flex items-center gap-2 p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 transition"
                         >
-                            <img src={assets.profile_img_a} alt="User Avatar" className="size-7 rounded-full" />
+                            <img
+                                src={user?.avatar || assets.profile_img_a}
+                                alt="User Avatar"
+                                className="size-7 rounded-full object-cover"
+                            />
                         </button>
 
                         {/* Dropdown Menu */}
@@ -79,8 +93,8 @@ const Navbar = ({ setIsSidebarOpen }) => {
                             <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-zinc-800 rounded-lg shadow-lg border border-gray-200 dark:border-zinc-700 py-1 z-50">
                                 {/* User Info Header */}
                                 <div className="px-4 py-3 border-b border-gray-200 dark:border-zinc-700">
-                                    <p className="text-sm font-medium text-gray-900 dark:text-white">John Doe</p>
-                                    <p className="text-xs text-gray-500 dark:text-zinc-400">john@example.com</p>
+                                    <p className="text-sm font-medium text-gray-900 dark:text-white">{user?.name || 'User'}</p>
+                                    <p className="text-xs text-gray-500 dark:text-zinc-400">{user?.email || 'user@example.com'}</p>
                                 </div>
 
                                 {/* Menu Items */}
