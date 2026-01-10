@@ -29,7 +29,7 @@ jobs:
           server: ${{ secrets.INF_HOST }}
           username: ${{ secrets.INF_USERNAME }}
           password: ${{ secrets.INF_PASSWORD }}
-          protocol: ftps
+          protocol: ftp
           port: 21
           local-dir: dist/
           server-dir: ${{ secrets.INF_SERVER_DIR }}/
