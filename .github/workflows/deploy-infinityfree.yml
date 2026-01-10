@@ -24,7 +24,7 @@ jobs:
         run: npm run build
 
       - name: Deploy to InfinityFree via FTP
-        uses: SamKirkland/FTP-Deploy-Action@4.5.0
+        uses: SamKirkland/FTP-Deploy-Action@4.3.1
         with:
           server: ${{ secrets.INF_HOST }}
           username: ${{ secrets.INF_USERNAME }}
