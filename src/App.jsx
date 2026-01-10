@@ -8,9 +8,11 @@ import ProjectDetails from "./pages/ProjectDetails";
 import TaskDetails from "./pages/TaskDetails";
 import Settings from "./pages/Settings";
 import Integrations from "./pages/Integrations";
+import TaskGenerator from "./pages/TaskGenerator";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import ForgotPassword from "./pages/ForgotPassword";
+import GitHubCallback from "./pages/GitHubCallback";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { AuthProvider } from "./context/AuthContext";
 
@@ -23,6 +25,7 @@ const App = () => {
                 <Route path="/login" element={<Login />} />
                 <Route path="/signup" element={<Signup />} />
                 <Route path="/forgot-password" element={<ForgotPassword />} />
+                <Route path="/auth/github/callback" element={<GitHubCallback />} />
 
                 {/* Protected Routes - With Layout */}
                 <Route
@@ -40,6 +43,7 @@ const App = () => {
                     <Route path="taskDetails" element={<TaskDetails />} />
                     <Route path="settings" element={<Settings />} />
                     <Route path="integrations" element={<Integrations />} />
+                    <Route path="task-generator" element={<TaskGenerator />} />
                 </Route>
             </Routes>
         </AuthProvider>

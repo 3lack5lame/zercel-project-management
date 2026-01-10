@@ -1,6 +1,7 @@
 import React, { createContext, useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import { supabase } from '../config/supabase';
+import GitHubService from '../services/githubService';
 
 const AuthContext = createContext();
 
@@ -13,6 +14,8 @@ export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
     const [isAuthenticated, setIsAuthenticated] = useState(false);
+    const [githubToken, setGithubToken] = useState(null);
+    const [githubService, setGithubService] = useState(null);
 
     // Initialize auth from localStorage or Supabase
     useEffect(() => {
@@ -32,6 +35,16 @@ export const AuthProvider = ({ children }) => {
                         };
                         setUser(user);
                         setIsAuthenticated(true);
+                        // Try to extract GitHub provider token and initialize GitHubService
+                        try {
+                            const providerToken = data.session?.provider_token || data.session?.provider_token?.access_token || data.session?.access_token;
+                            if (providerToken) {
+                                setGithubToken(providerToken);
+                                setGithubService(new GitHubService(providerToken));
+                            }
+                        } catch (e) {
+                            console.warn('No provider token available', e);
+                        }
                     }
                 } else {
                     // Check localStorage for mock auth
@@ -71,9 +84,21 @@ export const AuthProvider = ({ children }) => {
                     };
                     setUser(user);
                     setIsAuthenticated(true);
+                    // When auth state changes, try to set GitHub token/service if present
+                    try {
+                        const providerToken = session?.provider_token || session?.provider_token?.access_token || session?.access_token;
+                        if (providerToken) {
+                            setGithubToken(providerToken);
+                            setGithubService(new GitHubService(providerToken));
+                        }
+                    } catch (e) {
+                        console.warn('No provider token in session', e);
+                    }
                 } else {
                     setUser(null);
                     setIsAuthenticated(false);
+                    setGithubToken(null);
+                    setGithubService(null);
                 }
             });
 
@@ -311,15 +336,44 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
+    const loginWithGitHub = async () => {
+        try {
+            setLoading(true);
+
+            // Use Supabase's built-in GitHub OAuth
+            const { error } = await supabase.auth.signInWithOAuth({
+                provider: 'github',
+                options: {
+                    redirectTo: `${window.location.origin}/auth/github/callback`,
+                },
+            });
+
+            if (error) {
+                throw error;
+            }
+
+            // User will be redirected to GitHub, then back to callback URL
+            return { success: true };
+        } catch (error) {
+            toast.error(error.message || 'Failed to authenticate with GitHub');
+            return { success: false, error: error.message };
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const value = {
         user,
         isAuthenticated,
         loading,
+        githubService,
+        githubToken,
         login,
         signup,
         logout,
         forgotPassword,
         updateProfile,
+        loginWithGitHub,
     };
 
     return (

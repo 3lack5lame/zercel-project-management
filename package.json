@@ -10,12 +10,16 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@octokit/rest": "^22.0.1",
     "@reduxjs/toolkit": "^2.8.2",
     "@supabase/supabase-js": "^2.90.1",
     "@tailwindcss/vite": "^4.1.12",
     "date-fns": "^4.1.0",
+    "dotenv": "^17.2.3",
     "gitcli": "^3.0.2",
     "lucide-react": "^0.540.0",
+    "octokit": "^5.0.5",
+    "pdf-parse": "^2.4.5",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "react-hot-toast": "^2.6.0",
