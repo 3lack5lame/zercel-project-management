@@ -29,9 +29,9 @@ CREATE POLICY task_activity_select ON task_activity
       SELECT 1 FROM tasks
       WHERE tasks.id = task_activity.task_id
       AND EXISTS (
-        SELECT 1 FROM project_members
-        WHERE project_members.project_id = tasks.project_id
-        AND project_members.user_id = auth.uid()::text
+        SELECT 1 FROM team_members
+        WHERE team_members.project_id = tasks.project_id
+        AND team_members.user_id = auth.uid()::text
       )
     )
   );
