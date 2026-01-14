@@ -112,9 +112,8 @@ CREATE INDEX IF NOT EXISTS idx_task_activity_created_at ON task_activity(created
 CREATE INDEX IF NOT EXISTS idx_task_activity_user_id ON task_activity(user_id);
 
 -- ============================================================================
--- ENABLE ROW LEVEL SECURITY (RLS)
+-- ENABLE RLS
 -- ============================================================================
-
 ALTER TABLE projects ENABLE ROW LEVEL SECURITY;
 ALTER TABLE tasks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE team_members ENABLE ROW LEVEL SECURITY;
@@ -122,130 +121,123 @@ ALTER TABLE task_comments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE task_activity ENABLE ROW LEVEL SECURITY;
 
 -- ============================================================================
+-- CLEAN UP EXISTING POLICIES (RUN FIRST)
+-- ============================================================================
+DO $$ DECLARE
+  r RECORD;
+BEGIN
+  FOR r IN (
+    SELECT schemaname, tablename, policyname
+    FROM pg_policies
+    WHERE schemaname = 'public'
+  ) LOOP
+    EXECUTE format(
+      'DROP POLICY IF EXISTS %I ON %I.%I;',
+      r.policyname, r.schemaname, r.tablename
+    );
+  END LOOP;
+END $$;
+
+-- ============================================================================
 -- RLS POLICIES: PROJECTS
 -- ============================================================================
-
--- Users can view projects they own
 CREATE POLICY projects_select_own ON projects
-  FOR SELECT
-  TO authenticated
-  USING (user_id = auth.uid());
+  FOR SELECT TO authenticated
+  USING (user_id = auth.uid()::uuid);
 
--- Users can insert projects
 CREATE POLICY projects_insert ON projects
-  FOR INSERT
-  TO authenticated
-  WITH CHECK (user_id = auth.uid());
+  FOR INSERT TO authenticated
+  WITH CHECK (user_id = auth.uid()::uuid);
 
--- Users can update their own projects
 CREATE POLICY projects_update_own ON projects
-  FOR UPDATE
-  TO authenticated
-  USING (user_id = auth.uid())
-  WITH CHECK (user_id = auth.uid());
+  FOR UPDATE TO authenticated
+  USING (user_id = auth.uid()::uuid)
+  WITH CHECK (user_id = auth.uid()::uuid);
 
--- Users can delete their own projects
 CREATE POLICY projects_delete_own ON projects
-  FOR DELETE
-  TO authenticated
-  USING (user_id = auth.uid());
+  FOR DELETE TO authenticated
+  USING (user_id = auth.uid()::uuid::uuid);
 
 -- ============================================================================
 -- RLS POLICIES: TASKS
 -- ============================================================================
-
--- Users can view tasks in their projects
 CREATE POLICY tasks_select ON tasks
-  FOR SELECT
-  TO authenticated
+  FOR SELECT TO authenticated
   USING (
     EXISTS (
       SELECT 1 FROM projects
       WHERE projects.id = tasks.project_id
-      AND projects.user_id = auth.uid()
+      AND projects.user_id = auth.uid()::uuid
     )
   );
 
--- Users can insert tasks in their projects
 CREATE POLICY tasks_insert ON tasks
-  FOR INSERT
-  TO authenticated
+  FOR INSERT TO authenticated
   WITH CHECK (
     EXISTS (
       SELECT 1 FROM projects
       WHERE projects.id = tasks.project_id
-      AND projects.user_id = auth.uid()
+      AND projects.user_id = auth.uid()::uuid
     )
   );
 
--- Users can update tasks in their projects
 CREATE POLICY tasks_update ON tasks
-  FOR UPDATE
-  TO authenticated
+  FOR UPDATE TO authenticated
   USING (
     EXISTS (
       SELECT 1 FROM projects
       WHERE projects.id = tasks.project_id
-      AND projects.user_id = auth.uid()
+      AND projects.user_id = auth.uid()::uuid
     )
   )
   WITH CHECK (
     EXISTS (
       SELECT 1 FROM projects
       WHERE projects.id = tasks.project_id
-      AND projects.user_id = auth.uid()
+      AND projects.user_id = auth.uid()::uuid
     )
   );
 
--- Users can delete tasks in their projects
 CREATE POLICY tasks_delete ON tasks
-  FOR DELETE
-  TO authenticated
+  FOR DELETE TO authenticated
   USING (
     EXISTS (
       SELECT 1 FROM projects
       WHERE projects.id = tasks.project_id
-      AND projects.user_id = auth.uid()
+      AND projects.user_id = auth.uid()::uuid::uuid
     )
   );
 
 -- ============================================================================
 -- RLS POLICIES: TEAM MEMBERS
 -- ============================================================================
-
--- Users can view team members of their projects
 CREATE POLICY team_members_select ON team_members
-  FOR SELECT
-  TO authenticated
+  FOR SELECT TO authenticated
   USING (
     EXISTS (
       SELECT 1 FROM projects
       WHERE projects.id = team_members.project_id
-      AND projects.user_id = auth.uid()
+      AND projects.user_id = auth.uid()::uuid
     )
   );
 
--- Project owners can insert team members
 CREATE POLICY team_members_insert ON team_members
-  FOR INSERT
-  TO authenticated
+  FOR INSERT TO authenticated
   WITH CHECK (
     EXISTS (
       SELECT 1 FROM projects
       WHERE projects.id = team_members.project_id
-      AND projects.user_id = auth.uid()
+      AND projects.user_id = auth.uid()::uuid
     )
   );
 
--- Project owners can delete team members
 CREATE POLICY team_members_delete ON team_members
-  FOR DELETE
-  TO authenticated
+  FOR DELETE TO authenticated
   USING (
     EXISTS (
       SELECT 1 FROM projects
       WHERE projects.id = team_members.project_id
-      AND projects.user_id = auth.uid()
+      AND projects.user_id = auth.uid()::uuid::uuid
     )
   );
 
@@ -269,14 +261,14 @@ CREATE POLICY task_comments_insert ON task_comments
 CREATE POLICY task_comments_update ON task_comments
   FOR UPDATE
   TO authenticated
-  USING (user_id = auth.uid())
-  WITH CHECK (user_id = auth.uid());
+  USING (user_id = auth.uid()::uuid)
+  WITH CHECK (user_id = auth.uid()::uuid);
 
 -- Users can delete their own comments
 CREATE POLICY task_comments_delete ON task_comments
   FOR DELETE
   TO authenticated
-  USING (user_id = auth.uid());
+  USING (user_id = auth.uid()::uuid);
 
 -- ============================================================================
 -- RLS POLICIES: TASK ACTIVITY
@@ -441,7 +433,7 @@ DECLARE
   v_user_email TEXT;
 BEGIN
   IF NEW.description IS DISTINCT FROM OLD.description THEN
-    SELECT 
+    SELECT
       COALESCE(raw_user_meta_data->>'name', 'System'),
       COALESCE(email, '')
     INTO v_user_name, v_user_email
@@ -453,9 +445,9 @@ BEGIN
       action_type, old_value, new_value, field_name
     ) VALUES (
       NEW.id,
-      auth.uid(),
-      COALESCE(v_user_name, 'System'),
-      COALESCE(v_user_email, ''),
+      auth.uid()::uuid,
+      v_user_name,
+      v_user_email,
       'description_changed',
       OLD.description,
       NEW.description,
@@ -501,7 +493,5 @@ CREATE TRIGGER trigger_log_comment_activity
   EXECUTE FUNCTION log_comment_activity();
 
 -- ============================================================================
--- SCHEMA SETUP COMPLETE
+-- SCHEMA COMPLETE (FIXED)
 -- ============================================================================
--- All tables, indexes, RLS policies, and triggers are now created!
--- You can now use the application with full database support.
