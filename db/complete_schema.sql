@@ -1,8 +1,6 @@
 -- ============================================================================
--- COMPLETE SUPABASE DATABASE SCHEMA
+-- COMPLETE SUPABASE DATABASE SCHEMA (FIXED)
 -- ============================================================================
--- This file creates all necessary tables for the project management application
--- Run this in Supabase Dashboard → SQL Editor
 
 -- ============================================================================
 -- 1. PROJECTS TABLE
@@ -60,7 +58,7 @@ CREATE TABLE IF NOT EXISTS team_members (
 CREATE TABLE IF NOT EXISTS task_comments (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   task_id UUID NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
-  user_id UUID NOT NULL,
+  user_id UUID NOT NULL REFERENCES auth.users(id),
   user_name TEXT NOT NULL,
   user_email TEXT NOT NULL,
   content TEXT NOT NULL,
@@ -70,12 +68,12 @@ CREATE TABLE IF NOT EXISTS task_comments (
 );
 
 -- ============================================================================
--- 5. TASK ACTIVITY TABLE (Auto-tracking)
+-- 5. TASK ACTIVITY TABLE
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS task_activity (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   task_id UUID NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
-  user_id UUID NOT NULL,
+  user_id UUID NOT NULL REFERENCES auth.users(id),
   user_name TEXT NOT NULL,
   user_email TEXT NOT NULL,
   action_type TEXT NOT NULL,
@@ -86,7 +84,7 @@ CREATE TABLE IF NOT EXISTS task_activity (
 );
 
 -- ============================================================================
--- INDEXES FOR PERFORMANCE
+-- INDEXES
 -- ============================================================================
 
 -- Projects indexes
@@ -296,9 +294,8 @@ CREATE POLICY task_activity_insert ON task_activity
   WITH CHECK (true);
 
 -- ============================================================================
--- TRIGGER FUNCTIONS FOR TASK COMMENTS
+-- TRIGGERS: COMMENTS COUNT
 -- ============================================================================
-
 CREATE OR REPLACE FUNCTION update_task_comments_count()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -320,17 +317,16 @@ CREATE TRIGGER trigger_update_task_comments_count
   EXECUTE FUNCTION update_task_comments_count();
 
 -- ============================================================================
--- TRIGGER FUNCTIONS FOR TASK ACTIVITY LOGGING
+-- TRIGGERS: TASK ACTIVITY LOGGING (FIXED)
 -- ============================================================================
-
 CREATE OR REPLACE FUNCTION log_task_creation()
 RETURNS TRIGGER AS $$
 DECLARE
   v_user_name TEXT;
   v_user_email TEXT;
 BEGIN
-  SELECT 
-    COALESCE(raw_user_meta_data->>'name', 'Unknown'),
+  SELECT
+    COALESCE(raw_user_meta_data->>'name', 'System'),
     COALESCE(email, '')
   INTO v_user_name, v_user_email
   FROM auth.users
@@ -341,13 +337,14 @@ BEGIN
     action_type, new_value, field_name
   ) VALUES (
     NEW.id,
-    auth.uid(),
-    COALESCE(v_user_name, 'Unknown'),
-    COALESCE(v_user_email, ''),
+    auth.uid()::uuid,
+    v_user_name,
+    v_user_email,
     'created',
     NEW.title,
     'task'
   );
+
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -366,7 +363,7 @@ DECLARE
   v_user_email TEXT;
 BEGIN
   IF NEW.status IS DISTINCT FROM OLD.status THEN
-    SELECT 
+    SELECT
       COALESCE(raw_user_meta_data->>'name', 'System'),
       COALESCE(email, '')
     INTO v_user_name, v_user_email
@@ -378,9 +375,9 @@ BEGIN
       action_type, old_value, new_value, field_name
     ) VALUES (
       NEW.id,
-      auth.uid(),
-      COALESCE(v_user_name, 'System'),
-      COALESCE(v_user_email, ''),
+      auth.uid()::uuid,
+      v_user_name,
+      v_user_email,
       'status_changed',
       OLD.status,
       NEW.status,
@@ -405,7 +402,7 @@ DECLARE
   v_user_email TEXT;
 BEGIN
   IF NEW.title IS DISTINCT FROM OLD.title THEN
-    SELECT 
+    SELECT
       COALESCE(raw_user_meta_data->>'name', 'System'),
       COALESCE(email, '')
     INTO v_user_name, v_user_email
@@ -417,9 +414,9 @@ BEGIN
       action_type, old_value, new_value, field_name
     ) VALUES (
       NEW.id,
-      auth.uid(),
-      COALESCE(v_user_name, 'System'),
-      COALESCE(v_user_email, ''),
+      auth.uid()::uuid,
+      v_user_name,
+      v_user_email,
       'title_changed',
       OLD.title,
       NEW.title,
