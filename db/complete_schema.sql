@@ -341,7 +341,7 @@ BEGIN
     action_type, new_value, field_name
   ) VALUES (
     NEW.id,
-    auth.uid()::text,
+    auth.uid(),
     COALESCE(v_user_name, 'Unknown'),
     COALESCE(v_user_email, ''),
     'created',
@@ -378,7 +378,7 @@ BEGIN
       action_type, old_value, new_value, field_name
     ) VALUES (
       NEW.id,
-      auth.uid()::text,
+      auth.uid(),
       COALESCE(v_user_name, 'System'),
       COALESCE(v_user_email, ''),
       'status_changed',
@@ -417,7 +417,7 @@ BEGIN
       action_type, old_value, new_value, field_name
     ) VALUES (
       NEW.id,
-      auth.uid()::text,
+      auth.uid(),
       COALESCE(v_user_name, 'System'),
       COALESCE(v_user_email, ''),
       'title_changed',
@@ -456,7 +456,7 @@ BEGIN
       action_type, old_value, new_value, field_name
     ) VALUES (
       NEW.id,
-      auth.uid()::text,
+      auth.uid(),
       COALESCE(v_user_name, 'System'),
       COALESCE(v_user_email, ''),
       'description_changed',
