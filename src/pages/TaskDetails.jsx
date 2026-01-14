@@ -3,12 +3,14 @@ import toast from "react-hot-toast";
 import { useSelector } from "react-redux";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { CalendarIcon, MessageCircle, PenIcon } from "lucide-react";
+import { CalendarIcon, MessageCircle, PenIcon, Activity } from "lucide-react";
 import { assets } from "../assets/assets";
 import { useAuth } from "../context/useAuth";
 import TaskCommentsService from "../services/taskCommentsService";
+import TaskActivityService from "../services/taskActivityService";
 import CommentForm from "../components/CommentForm";
 import CommentsList from "../components/CommentsList";
+import TaskActivityFeed from "../components/TaskActivityFeed";
 import { supabase } from "../config/supabase";
 
 const TaskDetails = () => {
@@ -20,12 +22,17 @@ const TaskDetails = () => {
     const [task, setTask] = useState(null);
     const [project, setProject] = useState(null);
     const [comments, setComments] = useState([]);
+    const [activities, setActivities] = useState([]);
     const [loading, setLoading] = useState(true);
     const [commentsLoading, setCommentsLoading] = useState(false);
+    const [activitiesLoading, setActivitiesLoading] = useState(false);
     const [subscription, setSubscription] = useState(null);
+    const [activitySubscription, setActivitySubscription] = useState(null);
+    const [activeTab, setActiveTab] = useState("comments"); // 'comments' or 'activity'
 
     const { currentWorkspace } = useSelector((state) => state.workspace);
     const commentsService = new TaskCommentsService();
+    const activityService = new TaskActivityService();
 
     // Fetch comments from database
     const fetchComments = async () => {
@@ -40,6 +47,22 @@ const TaskDetails = () => {
             console.error('Error fetching comments:', error);
         } finally {
             setCommentsLoading(false);
+        }
+    };
+
+    // Fetch activities from database
+    const fetchActivities = async () => {
+        if (!taskId) return;
+        setActivitiesLoading(true);
+        try {
+            const result = await activityService.getTaskActivity(taskId);
+            if (result.success) {
+                setActivities(result.activities);
+            }
+        } catch (error) {
+            console.error('Error fetching activities:', error);
+        } finally {
+            setActivitiesLoading(false);
         }
     };
 
@@ -135,11 +158,20 @@ const TaskDetails = () => {
                 fetchComments();
             });
             setSubscription(sub);
+
+            const actSub = activityService.subscribeToActivity(taskId, (payload) => {
+                // Refresh activities on any change
+                fetchActivities();
+            });
+            setActivitySubscription(actSub);
         }
 
         return () => {
             if (subscription) {
                 subscription.unsubscribe();
+            }
+            if (activitySubscription) {
+                activitySubscription.unsubscribe();
             }
         };
     }, [taskId]);
@@ -151,6 +183,7 @@ const TaskDetails = () => {
     useEffect(() => {
         if (taskId && task) {
             fetchComments();
+            fetchActivities();
         }
     }, [taskId, task]);
 
@@ -162,28 +195,63 @@ const TaskDetails = () => {
             {/* Left: Comments / Discussion */}
             <div className="w-full lg:w-2/3">
                 <div className="p-5 rounded-md border border-gray-300 dark:border-zinc-800 flex flex-col lg:h-[80vh]">
-                    <h2 className="text-base font-semibold flex items-center gap-2 mb-4 text-gray-900 dark:text-white">
-                        <MessageCircle className="size-5" /> Task Discussion ({comments.length})
-                    </h2>
-
-                    {/* Comments List */}
-                    <div className="flex-1 md:overflow-y-auto no-scrollbar">
-                        <CommentsList
-                            comments={comments}
-                            currentUserId={user?.id}
-                            onEditComment={handleEditComment}
-                            onDeleteComment={handleDeleteComment}
-                            isLoading={commentsLoading}
-                        />
+                    {/* Tabs */}
+                    <div className="flex gap-4 mb-4 border-b border-gray-200 dark:border-zinc-700">
+                        <button
+                            onClick={() => setActiveTab("comments")}
+                            className={`pb-2 px-3 text-sm font-medium transition-colors ${
+                                activeTab === "comments"
+                                    ? "text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400"
+                                    : "text-gray-600 dark:text-zinc-400 hover:text-gray-900 dark:hover:text-white"
+                            }`}
+                        >
+                            <div className="flex items-center gap-2">
+                                <MessageCircle className="size-4" /> Comments ({comments.length})
+                            </div>
+                        </button>
+                        <button
+                            onClick={() => setActiveTab("activity")}
+                            className={`pb-2 px-3 text-sm font-medium transition-colors ${
+                                activeTab === "activity"
+                                    ? "text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400"
+                                    : "text-gray-600 dark:text-zinc-400 hover:text-gray-900 dark:hover:text-white"
+                            }`}
+                        >
+                            <div className="flex items-center gap-2">
+                                <Activity className="size-4" /> Activity ({activities.length})
+                            </div>
+                        </button>
                     </div>
 
-                    {/* Add Comment Form */}
-                    <div className="mt-4 pt-4 border-t border-gray-200 dark:border-zinc-700">
-                        <CommentForm
-                            taskId={taskId}
-                            onCommentAdded={handleAddComment}
-                        />
-                    </div>
+                    {/* Comments Tab */}
+                    {activeTab === "comments" && (
+                        <>
+                            <div className="flex-1 md:overflow-y-auto no-scrollbar">
+                                <CommentsList
+                                    comments={comments}
+                                    currentUserId={user?.id}
+                                    onEditComment={handleEditComment}
+                                    onDeleteComment={handleDeleteComment}
+                                    isLoading={commentsLoading}
+                                />
+                            </div>
+
+                            {/* Add Comment Form */}
+                            <div className="mt-4 pt-4 border-t border-gray-200 dark:border-zinc-700">
+                                <CommentForm
+                                    taskId={taskId}
+                                    onCommentAdded={handleAddComment}
+                                />
+                            </div>
+                        </>
+                    )}
+
+                    {/* Activity Tab */}
+                    {activeTab === "activity" && (
+                        <div className="flex-1 md:overflow-y-auto no-scrollbar">
+                            <TaskActivityFeed activities={activities} isLoading={activitiesLoading} />
+                        </div>
+                    )}
                 </div>
             </div>
 
