@@ -334,7 +334,7 @@ BEGIN
     COALESCE(email, '')
   INTO v_user_name, v_user_email
   FROM auth.users
-  WHERE id = auth.uid();
+  WHERE id = auth.uid()::uuid;
 
   INSERT INTO task_activity (
     task_id, user_id, user_name, user_email,
@@ -371,7 +371,7 @@ BEGIN
       COALESCE(email, '')
     INTO v_user_name, v_user_email
     FROM auth.users
-    WHERE id = auth.uid();
+    WHERE id = auth.uid()::uuid;
 
     INSERT INTO task_activity (
       task_id, user_id, user_name, user_email,
@@ -410,7 +410,7 @@ BEGIN
       COALESCE(email, '')
     INTO v_user_name, v_user_email
     FROM auth.users
-    WHERE id = auth.uid();
+    WHERE id = auth.uid()::uuid;
 
     INSERT INTO task_activity (
       task_id, user_id, user_name, user_email,
@@ -449,7 +449,7 @@ BEGIN
       COALESCE(email, '')
     INTO v_user_name, v_user_email
     FROM auth.users
-    WHERE id = auth.uid();
+    WHERE id = auth.uid()::uuid;
 
     INSERT INTO task_activity (
       task_id, user_id, user_name, user_email,
