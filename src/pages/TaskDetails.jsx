@@ -5,26 +5,45 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { CalendarIcon, MessageCircle, PenIcon } from "lucide-react";
 import { assets } from "../assets/assets";
+import { useAuth } from "../context/useAuth";
+import TaskCommentsService from "../services/taskCommentsService";
+import CommentForm from "../components/CommentForm";
+import CommentsList from "../components/CommentsList";
+import { supabase } from "../config/supabase";
 
 const TaskDetails = () => {
-
     const [searchParams] = useSearchParams();
     const projectId = searchParams.get("projectId");
     const taskId = searchParams.get("taskId");
+    const { user } = useAuth();
 
-    const user = { id : 'user_1'}
     const [task, setTask] = useState(null);
     const [project, setProject] = useState(null);
     const [comments, setComments] = useState([]);
-    const [newComment, setNewComment] = useState("");
     const [loading, setLoading] = useState(true);
+    const [commentsLoading, setCommentsLoading] = useState(false);
+    const [subscription, setSubscription] = useState(null);
 
     const { currentWorkspace } = useSelector((state) => state.workspace);
+    const commentsService = new TaskCommentsService();
 
+    // Fetch comments from database
     const fetchComments = async () => {
-
+        if (!taskId) return;
+        setCommentsLoading(true);
+        try {
+            const result = await commentsService.getTaskComments(taskId);
+            if (result.success) {
+                setComments(result.comments);
+            }
+        } catch (error) {
+            console.error('Error fetching comments:', error);
+        } finally {
+            setCommentsLoading(false);
+        }
     };
 
+    // Fetch task details from Redux store
     const fetchTaskDetails = async () => {
         setLoading(true);
         if (!projectId || !taskId) return;
@@ -40,36 +59,98 @@ const TaskDetails = () => {
         setLoading(false);
     };
 
-    const handleAddComment = async () => {
-        if (!newComment.trim()) return;
-
+    // Handle adding a new comment
+    const handleAddComment = async (commentData) => {
         try {
-
             toast.loading("Adding comment...");
+            const result = await commentsService.createComment(
+                commentData.task_id,
+                commentData.user_id,
+                commentData.user_name,
+                commentData.user_email,
+                commentData.content
+            );
 
-            //  Simulate API call
-            await new Promise((resolve) => setTimeout(resolve, 2000));
-
-            const dummyComment = { id: Date.now(), user: { id: 1, name: "User", image: assets.profile_img_a }, content: newComment, createdAt: new Date() };
-            
-            setComments((prev) => [...prev, dummyComment]);
-            setNewComment("");
-            toast.dismissAll();
-            toast.success("Comment added.");
+            if (result.success) {
+                setComments([...comments, result.comment]);
+                toast.dismiss();
+                toast.success("Comment added successfully!");
+            } else {
+                throw new Error(result.error);
+            }
         } catch (error) {
-            toast.dismissAll();
-            toast.error(error?.response?.data?.message || error.message);
+            toast.dismiss();
+            toast.error(error?.message || "Failed to add comment");
             console.error(error);
         }
     };
 
-    useEffect(() => { fetchTaskDetails(); }, [taskId]);
+    // Handle editing a comment
+    const handleEditComment = async (commentId, newContent) => {
+        try {
+            toast.loading("Updating comment...");
+            const result = await commentsService.updateComment(commentId, newContent);
+
+            if (result.success) {
+                setComments(comments.map(c => c.id === commentId ? result.comment : c));
+                toast.dismiss();
+                toast.success("Comment updated!");
+            } else {
+                throw new Error(result.error);
+            }
+        } catch (error) {
+            toast.dismiss();
+            toast.error("Failed to update comment");
+            console.error(error);
+        }
+    };
+
+    // Handle deleting a comment
+    const handleDeleteComment = async (commentId) => {
+        if (!window.confirm("Delete this comment?")) return;
+
+        try {
+            toast.loading("Deleting comment...");
+            const result = await commentsService.deleteComment(commentId, taskId);
+
+            if (result.success) {
+                setComments(comments.filter(c => c.id !== commentId));
+                toast.dismiss();
+                toast.success("Comment deleted!");
+            } else {
+                throw new Error(result.error);
+            }
+        } catch (error) {
+            toast.dismiss();
+            toast.error("Failed to delete comment");
+            console.error(error);
+        }
+    };
+
+    // Subscribe to real-time updates
+    useEffect(() => {
+        if (taskId) {
+            const sub = commentsService.subscribeToComments(taskId, (payload) => {
+                // Refresh comments on any change
+                fetchComments();
+            });
+            setSubscription(sub);
+        }
+
+        return () => {
+            if (subscription) {
+                subscription.unsubscribe();
+            }
+        };
+    }, [taskId]);
+
+    useEffect(() => {
+        fetchTaskDetails();
+    }, [taskId]);
 
     useEffect(() => {
         if (taskId && task) {
             fetchComments();
-            const interval = setInterval(() => { fetchComments(); }, 10000);
-            return () => clearInterval(interval);
         }
     }, [taskId, task]);
 
@@ -78,46 +159,30 @@ const TaskDetails = () => {
 
     return (
         <div className="flex flex-col-reverse lg:flex-row gap-6 sm:p-4 text-gray-900 dark:text-zinc-100 max-w-6xl mx-auto">
-            {/* Left: Comments / Chatbox */}
+            {/* Left: Comments / Discussion */}
             <div className="w-full lg:w-2/3">
-                <div className="p-5 rounded-md  border border-gray-300 dark:border-zinc-800  flex flex-col lg:h-[80vh]">
+                <div className="p-5 rounded-md border border-gray-300 dark:border-zinc-800 flex flex-col lg:h-[80vh]">
                     <h2 className="text-base font-semibold flex items-center gap-2 mb-4 text-gray-900 dark:text-white">
                         <MessageCircle className="size-5" /> Task Discussion ({comments.length})
                     </h2>
 
-                    <div className="flex-1 md:overflow-y-scroll no-scrollbar">
-                        {comments.length > 0 ? (
-                            <div className="flex flex-col gap-4 mb-6 mr-2">
-                                {comments.map((comment) => (
-                                    <div key={comment.id} className={`sm:max-w-4/5 dark:bg-gradient-to-br dark:from-zinc-800 dark:to-zinc-900 border border-gray-300 dark:border-zinc-700 p-3 rounded-md ${comment.user.id === user?.id ? "ml-auto" : "mr-auto"}`} >
-                                        <div className="flex items-center gap-2 mb-1 text-sm text-gray-500 dark:text-zinc-400">
-                                            <img src={comment.user.image} alt="avatar" className="size-5 rounded-full" />
-                                            <span className="font-medium text-gray-900 dark:text-white">{comment.user.name}</span>
-                                            <span className="text-xs text-gray-400 dark:text-zinc-600">
-                                                • {format(new Date(comment.createdAt), "dd MMM yyyy, HH:mm")}
-                                            </span>
-                                        </div>
-                                        <p className="text-sm text-gray-900 dark:text-zinc-200">{comment.content}</p>
-                                    </div>
-                                ))}
-                            </div>
-                        ) : (
-                            <p className="text-gray-600 dark:text-zinc-500 mb-4 text-sm">No comments yet. Be the first!</p>
-                        )}
+                    {/* Comments List */}
+                    <div className="flex-1 md:overflow-y-auto no-scrollbar">
+                        <CommentsList
+                            comments={comments}
+                            currentUserId={user?.id}
+                            onEditComment={handleEditComment}
+                            onDeleteComment={handleDeleteComment}
+                            isLoading={commentsLoading}
+                        />
                     </div>
 
-                    {/* Add Comment */}
-                    <div className="flex flex-col sm:flex-row items-start sm:items-end gap-3">
-                        <textarea
-                            value={newComment}
-                            onChange={(e) => setNewComment(e.target.value)}
-                            placeholder="Write a comment..."
-                            className="w-full dark:bg-zinc-800 border border-gray-300 dark:border-zinc-700 rounded-md p-2 text-sm text-gray-900 dark:text-zinc-200 resize-none focus:outline-none focus:ring-1 focus:ring-blue-600"
-                            rows={3}
+                    {/* Add Comment Form */}
+                    <div className="mt-4 pt-4 border-t border-gray-200 dark:border-zinc-700">
+                        <CommentForm
+                            taskId={taskId}
+                            onCommentAdded={handleAddComment}
                         />
-                        <button onClick={handleAddComment} className="bg-gradient-to-l from-blue-500 to-blue-600 transition-colors text-white text-sm px-5 py-2 rounded " >
-                            Post
-                        </button>
                     </div>
                 </div>
             </div>
