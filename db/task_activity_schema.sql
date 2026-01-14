@@ -20,7 +20,7 @@ CREATE INDEX idx_task_activity_user_id ON task_activity(user_id);
 -- Enable RLS (Row Level Security)
 ALTER TABLE task_activity ENABLE ROW LEVEL SECURITY;
 
--- RLS Policy: Allow authenticated users to view activity for their tasks
+-- RLS Policy: Allow authenticated users to view activity for tasks in their projects
 CREATE POLICY task_activity_select ON task_activity
   FOR SELECT
   TO authenticated
@@ -28,12 +28,9 @@ CREATE POLICY task_activity_select ON task_activity
     EXISTS (
       SELECT 1 FROM tasks
       WHERE tasks.id = task_activity.task_id
-      AND (
-        tasks.user_id = auth.uid()
-        OR auth.uid() IN (
-          SELECT user_id FROM project_members
-          WHERE project_id = tasks.project_id
-        )
+      AND auth.uid() IN (
+        SELECT user_id FROM project_members
+        WHERE project_id = tasks.project_id
       )
     )
   );
