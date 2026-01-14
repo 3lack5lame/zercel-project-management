@@ -52,9 +52,9 @@ BEGIN
     action_type, new_value, field_name
   ) VALUES (
     NEW.id,
-    NEW.user_id,
-    COALESCE(NEW.user_name, 'Unknown'),
-    COALESCE(NEW.user_email, ''),
+    auth.uid()::text,
+    COALESCE((auth.jwt()->>'user_metadata'->>'name')::text, 'Unknown'),
+    COALESCE((auth.jwt()->>'email')::text, ''),
     'created',
     NEW.title,
     'task'
@@ -80,9 +80,9 @@ BEGIN
       action_type, old_value, new_value, field_name
     ) VALUES (
       NEW.id,
-      COALESCE(NEW.user_id, 'system'),
-      COALESCE(NEW.user_name, 'System'),
-      COALESCE(NEW.user_email, ''),
+      auth.uid()::text,
+      COALESCE((auth.jwt()->>'user_metadata'->>'name')::text, 'System'),
+      COALESCE((auth.jwt()->>'email')::text, ''),
       'status_changed',
       OLD.status,
       NEW.status,
@@ -110,9 +110,9 @@ BEGIN
       action_type, old_value, new_value, field_name
     ) VALUES (
       NEW.id,
-      COALESCE(NEW.user_id, 'system'),
-      COALESCE(NEW.user_name, 'System'),
-      COALESCE(NEW.user_email, ''),
+      auth.uid()::text,
+      COALESCE((auth.jwt()->>'user_metadata'->>'name')::text, 'System'),
+      COALESCE((auth.jwt()->>'email')::text, ''),
       'title_changed',
       OLD.title,
       NEW.title,
@@ -140,9 +140,9 @@ BEGIN
       action_type, old_value, new_value, field_name
     ) VALUES (
       NEW.id,
-      COALESCE(NEW.user_id, 'system'),
-      COALESCE(NEW.user_name, 'System'),
-      COALESCE(NEW.user_email, ''),
+      auth.uid()::text,
+      COALESCE((auth.jwt()->>'user_metadata'->>'name')::text, 'System'),
+      COALESCE((auth.jwt()->>'email')::text, ''),
       'description_changed',
       OLD.description,
       NEW.description,
