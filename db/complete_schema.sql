@@ -60,7 +60,7 @@ CREATE TABLE IF NOT EXISTS team_members (
 CREATE TABLE IF NOT EXISTS task_comments (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   task_id UUID NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
-  user_id TEXT NOT NULL,
+  user_id UUID NOT NULL,
   user_name TEXT NOT NULL,
   user_email TEXT NOT NULL,
   content TEXT NOT NULL,
@@ -75,7 +75,7 @@ CREATE TABLE IF NOT EXISTS task_comments (
 CREATE TABLE IF NOT EXISTS task_activity (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   task_id UUID NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
-  user_id TEXT NOT NULL,
+  user_id UUID NOT NULL,
   user_name TEXT NOT NULL,
   user_email TEXT NOT NULL,
   action_type TEXT NOT NULL,
@@ -271,14 +271,14 @@ CREATE POLICY task_comments_insert ON task_comments
 CREATE POLICY task_comments_update ON task_comments
   FOR UPDATE
   TO authenticated
-  USING (user_id::uuid = auth.uid())
-  WITH CHECK (user_id::uuid = auth.uid());
+  USING (user_id = auth.uid())
+  WITH CHECK (user_id = auth.uid());
 
 -- Users can delete their own comments
 CREATE POLICY task_comments_delete ON task_comments
   FOR DELETE
   TO authenticated
-  USING (user_id::uuid = auth.uid());
+  USING (user_id = auth.uid());
 
 -- ============================================================================
 -- RLS POLICIES: TASK ACTIVITY
